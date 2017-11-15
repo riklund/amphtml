@@ -21,6 +21,11 @@ import {
   incrementLoadingAds,
 } from './concurrent-load';
 import {getAdCid} from '../../../src/ad-cid';
+import {
+   computedStyle,
+   getStyle,
+   setStyle,
+ } from '../../../src/style';
 import {preloadBootstrap} from '../../../src/3p-frame';
 import {isLayoutSizeDefined} from '../../../src/layout';
 import {isAdPositionAllowed, getAdContainer}
@@ -144,6 +149,11 @@ export class AmpAd3PImpl extends AMP.BaseElement {
     this.uiHandler = new AmpAdUIHandler(this);
 
     setupA2AListener(this.win);
+    const viewportSize = this.getViewport().getSize();
+
+    return this.attemptChangeSize(
+        viewportSize.width / 1.2,
+        viewportSize.width).then(() => {}, () => {});
   }
 
   /**
@@ -193,6 +203,25 @@ export class AmpAd3PImpl extends AMP.BaseElement {
     if (this.xOriginIframeHandler_) {
       this.xOriginIframeHandler_.onLayoutMeasure();
     }
+
+    const layoutBox = this.getLayoutBox();
+    this.getVsync().run({
+      measure: state => {
+        const style = computedStyle(this.win, this.element);
+        state.direction = style['direction'];
+        state.marginLeft = parseFloat(style['marginLeft']) || 0;
+        state.marginRight = parseFloat(style['marginRight']) || 0;
+      },
+      mutate: state => {
+        if (state.direction == 'rtl') {
+          setStyle(this.element, 'marginRight',
+              layoutBox.left + state.marginRight, 'px');
+        } else {
+          setStyle(this.element, 'marginLeft',
+              -1 * layoutBox.left + state.marginLeft, 'px');
+        }
+      },
+    }, {direction: '', marginLeft: 0, marginRight: 0});
   }
 
   /**
